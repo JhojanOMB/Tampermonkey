@@ -5,6 +5,8 @@
 // @author       Jhojan
 // @include      /^https?:\/\/(www\.)?sketchfab\.com\/.*$/
 // @run-at       document-start
+// @updateURL    https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.js
+// @downloadURL  https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jszip-utils/0.0.2/jszip-utils.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js
