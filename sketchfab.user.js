@@ -14,7 +14,7 @@
 // @grant        GM_download
 // ==/UserScript==
 
-/* global saveAs, GM_download, JSZip */
+//* global saveAs, GM_download, JSZip *//
 
 (() => {
   'use strict';
