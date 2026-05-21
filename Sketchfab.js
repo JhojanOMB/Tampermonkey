@@ -8,8 +8,8 @@
 // @match        https://www.sketchfab.com/*
 // @match        https://sketchfab.com/*
 
-// @updateURL    https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.user.js
-// @downloadURL  https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.user.js
+// @updateURL    https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.js
+// @downloadURL  https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.js
 
 // @grant        unsafeWindow
 // @grant        GM_download
