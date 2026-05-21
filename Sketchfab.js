@@ -10,10 +10,14 @@
 
 // @updateURL    https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.js
 // @downloadURL  https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js
 
 // @grant        unsafeWindow
 // @grant        GM_download
 // ==/UserScript==
+
+/* global saveAs, GM_download, JSZip */
 
 (() => {
   'use strict';
@@ -49,6 +53,40 @@ Ks 0.000 0.000 0.000
 Ns 10
 `;
     return new Blob([content], { type: 'text/plain' });
+  }
+
+  function downloadBlob(blob, fileName) {
+    try {
+      if (typeof saveAs === 'function') {
+        saveAs(blob, fileName);
+        return;
+      }
+    } catch (err) {
+      console.warn(LOG_PREFIX, 'saveAs raised', err);
+    }
+
+    try {
+      if (typeof GM_download === 'function') {
+        const url = URL.createObjectURL(blob);
+        GM_download({ url, name: fileName, saveAs: true });
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        return;
+      }
+    } catch (err) {
+      console.warn(LOG_PREFIX, 'GM_download failed', err);
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
   }
 
   // regex para parcheos
@@ -541,7 +579,7 @@ Ns 10
 
       const titleEl = document.getElementsByClassName('model-name__label')[0];
       const fileName = (titleEl ? titleEl.textContent.trim() : 'sketchfab_collection') + '.zip';
-      saveAs(blobZip, fileName);
+      downloadBlob(blobZip, fileName);
       setTimeout(()=>{ pageWindow.us2_showOverlay(false); pageWindow.us2_setProgress(0); }, 900);
       console.log(LOG_PREFIX, 'Descarga iniciada:', fileName);
     } catch (err) {
