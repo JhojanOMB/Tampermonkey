@@ -14,11 +14,9 @@
 // @grant        GM_download
 // ==/UserScript==
 
-//* global saveAs, GM_download, JSZip *//
-
 (() => {
   'use strict';
-  const pageWindow = unsafeWindow || window;
+  const window = unsafeWindow || globalThis;
   const LOG_PREFIX = '[US2]';
 
   // caches y estructuras
@@ -27,69 +25,9 @@
   const objects = {}; // name -> Blob (puede ser .obj o imagen)
   const saveImageCache = new Map();
 
-  function sanitizeName(name) {
-    return ('' + (name || 'modelo'))
-      .replace(/[\s<>:"\/\\|?*]+/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 80) || 'modelo';
-  }
-
-  function resetSession() {
-    allModels.length = 0;
-    seenModels.clear();
-    saveImageCache.clear();
-    Object.keys(objects).forEach(k => delete objects[k]);
-  }
-
-  function buildMTL(name) {
-    const content = `newmtl material0
-Ka 0.000 0.000 0.000
-Kd 0.800 0.800 0.800
-Ks 0.000 0.000 0.000
-Ns 10
-`;
-    return new Blob([content], { type: 'text/plain' });
-  }
-
-  function downloadBlob(blob, fileName) {
-    try {
-      if (typeof saveAs === 'function') {
-        saveAs(blob, fileName);
-        return;
-      }
-    } catch (err) {
-      console.warn(LOG_PREFIX, 'saveAs raised', err);
-    }
-
-    try {
-      if (typeof GM_download === 'function') {
-        const url = URL.createObjectURL(blob);
-        GM_download({ url, name: fileName, saveAs: true });
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-        return;
-      }
-    } catch (err) {
-      console.warn(LOG_PREFIX, 'GM_download failed', err);
-    }
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 1000);
-  }
-
   // regex para parcheos
   const func_drawGeometry = /(this\._stateCache\.drawGeometry\(this\._graphicContext,t\))/g;
   const fund_drawArrays = /t\.drawArrays\(t\.TRIANGLES,0,6\)/g;
-  const func_drawElements = /t\.drawElements\(t\.TRIANGLES,0,6\)/g;
   const func_renderInto1 = /A\.renderInto\(n,E,R/g;
   const func_renderInto2 = /g\.renderInto=function\(e,i,r/g;
   const func_getResourceImage = /getResourceImage:function\(e,t\){/g;
@@ -211,7 +149,7 @@ Ns 10
 
     const parent = findSceneParent();
     if (parent) {
-      const computed = pageWindow.getComputedStyle(parent);
+      const computed = window.getComputedStyle(parent);
       if (computed.position === 'static') parent.style.position = 'relative';
       container.style.position = 'absolute';
       container.style.right = '12px';
@@ -227,9 +165,9 @@ Ns 10
     btn.addEventListener('click', startDownloadFlow);
 
     // funciones para depuración
-    pageWindow.forceScanModels = () => { resetSession(); tryScanGlobals(true); console.log(LOG_PREFIX, 'forceScanModels ejecutado. allModels:', allModels.length); return allModels.length; };
-    pageWindow.us2_showOverlay = (show) => { overlay.style.display = show ? 'flex' : 'none'; };
-    pageWindow.us2_setProgress = (n) => {
+    window.forceScanModels = () => { tryScanGlobals(true); console.log(LOG_PREFIX, 'forceScanModels ejecutado. allModels:', allModels.length); return allModels.length; };
+    window.us2_showOverlay = (show) => { overlay.style.display = show ? 'flex' : 'none'; };
+    window.us2_setProgress = (n) => {
       const p = Math.max(0, Math.min(100, Math.round(n)));
       progressBar.style.width = p + '%';
       percent.textContent = p + '%';
@@ -278,7 +216,6 @@ Ns 10
       str += 'vt ' + (obj.uv[i]||0) + ' ' + (obj.uv[i+1]||0) + '\n';
     }
     str += 's on\n';
-    str += 'usemtl material0\n';
     const vn = (obj.normal||[]).length !== 0;
     const vt = (obj.uv||[]).length !== 0;
     (obj.primitives || []).forEach(primitive => {
@@ -306,7 +243,7 @@ Ns 10
   }
 
   // === attachbody robusto (deduplicado) ===
-  pageWindow.attachbody = function(obj) {
+  window.attachbody = function(obj) {
     try {
       if (!obj) return;
       if (obj._faked === true) return;
@@ -336,28 +273,26 @@ Ns 10
 
   function tryScanGlobals(forceLog=false) {
     try {
-      const windowKeys = Object.keys(pageWindow);
-      let keys = windowKeys.filter(k => /^(Sketchfab|sketchfab|viewer|scene|canvas|gl|render|_)/i.test(k));
-      if (!keys.length) keys = windowKeys;
+      const keys = Object.keys(window);
       let found = 0;
       for (let i = 0; i < keys.length; i++) {
         const k = keys[i];
         try {
-          const val = pageWindow[k];
+          const val = window[k];
           if (!val) continue;
           if (Array.isArray(val)) {
             for (let j = 0; j < Math.min(80, val.length); j++) {
               const e = val[j];
-              if (isMaybeModel(e)) { pageWindow.attachbody(e); found++; }
+              if (isMaybeModel(e)) { window.attachbody(e); found++; }
             }
           } else if (typeof val === 'object') {
-            if (isMaybeModel(val)) { pageWindow.attachbody(val); found++; }
+            if (isMaybeModel(val)) { window.attachbody(val); found++; }
             else {
               for (const p in val) {
                 if (!Object.prototype.hasOwnProperty.call(val, p)) continue;
                 try {
                   const sub = val[p];
-                  if (isMaybeModel(sub)) { pageWindow.attachbody(sub); found++; }
+                  if (isMaybeModel(sub)) { window.attachbody(sub); found++; }
                 } catch(e){}
               }
             }
@@ -392,10 +327,6 @@ Ns 10
               const src = node.src;
               if (/web\/dist|standaloneViewer|viewer|embed|sketchfab/i.test(src)) {
                 node.type = 'us2/blocked';
-                const parent = node.parentNode;
-                const clone = node.cloneNode(true);
-                clone.type = 'text/javascript';
-                if (parent) parent.removeChild(node);
                 (async (s) => {
                   try {
                     const r = await fetch(s, { credentials: 'same-origin' });
@@ -406,8 +337,6 @@ Ns 10
                     ret = func_renderInto2.exec(jstext);
                     if (ret) { const index = ret.index + ret[0].length; jstext = jstext.slice(0,index) + ",image_data" + jstext.slice(index); }
                     ret = fund_drawArrays.exec(jstext);
-                    if (ret) { const index = ret.index + ret[0].length; jstext = jstext.slice(0,index) + ",window.drawhookimg(t,image_data)" + jstext.slice(index); }
-                    ret = func_drawElements.exec(jstext);
                     if (ret) { const index = ret.index + ret[0].length; jstext = jstext.slice(0,index) + ",window.drawhookimg(t,image_data)" + jstext.slice(index); }
                     ret = func_getResourceImage.exec(jstext);
                     if (ret) { const index = ret.index + ret[0].length; jstext = jstext.slice(0,index) + "e = window.drawhookcanvas(e,this._imageModel);" + jstext.slice(index); }
@@ -421,7 +350,7 @@ Ns 10
                     script.text = jstext;
                     document.head.appendChild(script);
                   } catch (err) {
-                    if (parent) parent.appendChild(clone);
+                    node.type = 'text/javascript';
                     console.warn(LOG_PREFIX, 'patchScripts fetch failed', err, src);
                     tryScanGlobals(false);
                   }
@@ -436,7 +365,7 @@ Ns 10
   })();
 
   // === captura de texturas (drawhookcanvas / drawhookimg) ===
-  pageWindow.drawhookcanvas = function(e, imagemodel) {
+  window.drawhookcanvas = function(e, imagemodel) {
     try {
       if (!imagemodel) return e;
       if ((e.width === 128 && e.height === 128) || (e.width === 32 && e.height === 32) || (e.width === 64 && e.height === 64)) return e;
@@ -461,7 +390,7 @@ Ns 10
     }
   };
 
-  pageWindow.drawhookimg = async function(gl, t) {
+  window.drawhookimg = function(gl, t) {
     try {
       const url = t[5] && t[5].currentSrc;
       const width = t[5] && t[5].width;
@@ -495,21 +424,15 @@ Ns 10
       let name = baseName + '.png';
       let suffix = 1;
       while (objects['textures/' + name]) { name = baseName + '_' + (suffix++) + '.png'; }
-      await new Promise(resolve => {
-        canvas.toBlob(blob => {
-          objects['textures/' + name] = blob;
-          resolve();
-        }, 'image/png');
-      });
+      canvas.toBlob(blob => { objects['textures/' + name] = blob; console.log(LOG_PREFIX, 'textura guardada:', 'textures/' + name); }, 'image/png');
     } catch (err) {}
   };
 
   // === flujo de descarga: reintentos de scan, empaquetado, progreso ===
   async function startDownloadFlow() {
     try {
-      resetSession();
-      pageWindow.us2_showOverlay(true);
-      pageWindow.us2_setProgress(6);
+      window.us2_showOverlay(true);
+      window.us2_setProgress(6);
 
       const maxWaitMs = 4000;
       const interval = 400;
@@ -519,33 +442,26 @@ Ns 10
         await new Promise(r => setTimeout(r, interval));
         waited += interval;
       }
-      pageWindow.us2_setProgress(16);
+      window.us2_setProgress(16);
 
       if (allModels.length === 0) tryScanGlobals(true);
-      pageWindow.us2_setProgress(26);
+      window.us2_setProgress(26);
 
       if (allModels.length === 0) {
         console.warn(LOG_PREFIX, 'No se detectaron modelos. Ejecuta window.forceScanModels() o revisa la consola.');
-        const titleEl = document.getElementById('us2-title');
-        const descEl = document.getElementById('us2-desc');
-        if (titleEl) titleEl.textContent = 'No se detectaron modelos';
-        if (descEl) descEl.textContent = 'Prueba window.forceScanModels() o recarga la página.';
-        pageWindow.us2_setProgress(0);
-        await new Promise(r => setTimeout(r, 1200));
-        pageWindow.us2_showOverlay(false);
+        window.us2_showOverlay(false);
         return;
       }
 
       for (let i = 0; i < allModels.length; i++) {
         const objRaw = allModels[i];
-        const name = sanitizeName(objRaw._name || objRaw.name || `modelo_${i}`);
+        const name = (objRaw._name || objRaw.name || `modelo_${i}`).replace(/\s+/g,'_').slice(0,80);
         const keyName = `${name}.obj`;
         if (objects[keyName]) continue;
         const parsed = parseObj(objRaw);
         const blob = buildOBJ({ name, obj: parsed });
         objects[keyName] = blob;
-        objects[`${name}.mtl`] = buildMTL(name);
-        pageWindow.us2_setProgress(26 + Math.min(60, Math.round((i+1)/Math.max(1, allModels.length) * 60)));
+        window.us2_setProgress(26 + Math.min(60, Math.round((i+1)/Math.max(1, allModels.length) * 60)));
         await new Promise(r => setTimeout(r, 60));
       }
 
@@ -570,22 +486,22 @@ Ns 10
 
       // generar zip con progreso
       const blobZip = await zip.generateAsync({ type: 'blob' }, meta => {
-        pageWindow.us2_setProgress(90 + Math.round(meta.percent/10));
+        window.us2_setProgress(90 + Math.round(meta.percent/10));
       });
-      pageWindow.us2_setProgress(100);
+      window.us2_setProgress(100);
 
       const titleEl = document.getElementsByClassName('model-name__label')[0];
       const fileName = (titleEl ? titleEl.textContent.trim() : 'sketchfab_collection') + '.zip';
-      downloadBlob(blobZip, fileName);
-      setTimeout(()=>{ pageWindow.us2_showOverlay(false); pageWindow.us2_setProgress(0); }, 900);
+      saveAs(blobZip, fileName);
+      setTimeout(()=>{ window.us2_showOverlay(false); window.us2_setProgress(0); }, 900);
       console.log(LOG_PREFIX, 'Descarga iniciada:', fileName);
     } catch (err) {
       console.error(LOG_PREFIX, 'Error en startDownloadFlow', err);
-      pageWindow.us2_showOverlay(false);
+      window.us2_showOverlay(false);
     }
   }
 
   // status exposible
-  pageWindow.us2_status = () => ({ models: allModels.length, objects: Object.keys(objects).length });
+  window.us2_status = () => ({ models: allModels.length, objects: Object.keys(objects).length });
 
 })();
