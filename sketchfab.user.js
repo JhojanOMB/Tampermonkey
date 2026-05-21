@@ -1,18 +1,13 @@
 // ==UserScript==
 // @name         Sketchfab JOMB
-// @namespace    https://github.com/JhojanOMB
-// @version      1.0.0
-// @description  Descargador de modelos
+// @version      1.0
+// @description  Descargar modelos de Sketchfab
 // @author       Jhojan
-
-// @match        https://www.sketchfab.com/*
-// @match        https://sketchfab.com/*
-
-// @updateURL    https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.js
-// @downloadURL  https://raw.githubusercontent.com/JhojanOMB/Tampermonkey/main/sketchfab.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js
-
+// @include      /^https?:\/\/(www\.)?sketchfab\.com\/.*$/
+// @run-at       document-start
+// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip-utils/0.0.2/jszip-utils.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js
 // @grant        unsafeWindow
 // @grant        GM_download
 // ==/UserScript==
